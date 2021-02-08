@@ -8,7 +8,7 @@ class TNet(nn.Module):
     
     def __init__(self, 
                  channel = 3):
-        super.__init__(self, TNet)
+        super(TNet, self).__init__()
         self.channel = channel
 
         self.conv1 = nn.Conv1d(self.channel, 64, kernel_size=1)
