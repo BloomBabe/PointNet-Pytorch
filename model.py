@@ -102,13 +102,3 @@ class PointNet(nn.Module):
 
         pred = self.logsoftmax(output)
         return pred, matrix3x3, matrix64x64
-
-        
-
-
-
-
-
-
-
-
