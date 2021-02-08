@@ -3,6 +3,17 @@ import torch.nn as nn
 import numpy as np 
 import torch.nn.functional as F
 
+def conv1d_bn(input_channels, output_channels):
+    conv1d_layer = [nn.Conv1d(input_channels, output_channels, kernel_size=1),
+                    nn.BatchNorm1d(output_channels),
+                    nn.ReLU(inplace=True)]
+    return nn.Sequential(*conv1d_layer)
+
+def fc_bn(input_channels, output_channels):
+    fc_layer = [nn.Linear(input_channels, output_channels),
+                nn.BatchNorm1d(output_channels),
+                nn.ReLU(inplace=True)]
+    return nn.Sequential(*fc_layer)
 
 class TNet(nn.Module):
     
@@ -11,34 +22,28 @@ class TNet(nn.Module):
         super(TNet, self).__init__()
         self.channel = channel
 
-        self.conv1 = nn.Conv1d(self.channel, 64, kernel_size=1)
-        self.conv2 = nn.Conv1d(64, 128, kernel_size=1)
-        self.conv3 = nn.Conv1d(128, 1024, kernel_size=1)
-
-        self.fc1 = nn.Linear(1024, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, self.channel*self.channel)
-
-        self.bn1 = nn.BatchNorm1d(64)
-        self.bn2 = nn.BatchNorm1d(128)
-        self.bn3 = nn.BatchNorm1d(1024)
-        self.bn4 = nn.BatchNorm1d(512)
-        self.bn5 = nn.BatchNorm1d(256)
+        self.conv1_bn = conv1d_bn(self.channel, 64)
+        self.conv2_bn = conv1d_bn(64, 128)
+        self.conv3_bn = conv1d_bn(128, 1024)
 
         self.max_pool = nn.MaxPool1d(1024)
+
+        self.fc1_bn = fc_bn(1024, 512)
+        self.fc2_bn = fc_bn(512, 256)
+        self.fc3 = nn.Linear(256, self.channel*self.channel)
 
 
     def forward(self, x):
         self.batch_size = x.size(0)
-        output = F.relu(self.bn1(self.conv1(x)))
-        output = F.relu(self.bn2(self.conv2(output)))
-        output = F.relu(self.bn3(self.conv3(output)))
+        output = self.conv1_bn(x)
+        output = self.conv2_bn(output)
+        output = self.conv3_bn(output)
 
         output = self.max_pool(output)
         output = nn.Flatten()(output)
 
-        output = F.relu(self.bn4(self.fc1(output)))
-        output = F.relu(self.bn5(self.fc2(output)))
+        output = self.fc1_bn(output)
+        output = self.fc2_bn(output)
         output = self.fc3(output)
 
         iden = torch.eye(self.channel, requires_grad=True). \
