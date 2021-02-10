@@ -50,16 +50,16 @@ class TNet(nn.Module):
         output = self.fc3(output)
 
         iden = torch.eye(self.channel, requires_grad=True). \
-                     repeat(self.batch_size, 1)
+                     repeat(self.batch_size, 1, 1)
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         iden = iden.to(device)
-        output += iden
 
-        matrix_KxK = output.view(self.batch_size, self.channel, self.channel)
-        output =  torch.bmm(torch.transpose(x, 1, 2), matrix_KxK).transpose(1, 2)
+        output = output.view(self.batch_size, self.channel, self.channel)
+        matrix = output + iden
+        output = torch.bmm(torch.transpose(x, 1, 2), matrix).transpose(1, 2)
 
-        return  matrix_KxK, output
+        return  matrix, output
 
 
 class PointNet(nn.Module):
@@ -102,3 +102,15 @@ class PointNet(nn.Module):
 
         pred = self.logsoftmax(output)
         return pred, matrix3x3, matrix64x64
+
+def pointnetloss(outputs, labels, m3x3, m64x64, alpha = 0.0001):
+    criterion = torch.nn.NLLLoss()
+    bs=outputs.size(0)
+    id3x3 = torch.eye(3, requires_grad=True).repeat(bs,1,1)
+    id64x64 = torch.eye(64, requires_grad=True).repeat(bs,1,1)
+    if outputs.is_cuda:
+        id3x3=id3x3.cuda()
+        id64x64=id64x64.cuda()
+    diff3x3 = id3x3-torch.bmm(m3x3,m3x3.transpose(1,2))
+    diff64x64 = id64x64-torch.bmm(m64x64,m64x64.transpose(1,2))
+    return criterion(outputs, labels) + alpha * (torch.norm(diff3x3)+torch.norm(diff64x64)) / float(bs)
