@@ -5,13 +5,13 @@ import json
 from torch.utils.data import Dataset
 
 
-
 def point_normalize(point_cloud):
     assert len(point_cloud.shape) == 2
 
     norm_out = point_cloud - np.mean(point_cloud, axis=0)
     norm_out /= np.max(np.linalg.norm(point_cloud, axis=1))
     return norm_out
+    
     
 class PointCloudDataset(Dataset):
 
@@ -51,6 +51,14 @@ class PointCloudDataset(Dataset):
         
         self.cache = {}  # from index to (point_set, cls, seg) tuple
         self.cache_size = 20000
+
+
+    def __preproc__(self, file):
+        pass
+
+
+    def __len__(self):
+        return len(self.datapths)
 
 
     def __getitem__(self, idx):
