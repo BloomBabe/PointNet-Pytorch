@@ -6,6 +6,7 @@ import sys
 import json
 import torch
 import argparse
+import datetime
 from torchvision import transforms, utils
 
 from torch.utils.data import Dataset, DataLoader
@@ -15,6 +16,7 @@ from model import PointNet, pointnetloss
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
+print(BASE_DIR)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_root', type=str, default='./data/ModelNet10', help='Path of root dataset [default: ./data/ModelNet10]')
@@ -24,22 +26,32 @@ parser.add_argument('--num_points', type=int, default=1024, help='Point number [
 parser.add_argument('--optimizer', type=str, default='Adam', help='Optimizer for training [default: Adam]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
-parser.add_argument('--log_dir', type=str, default='log', help='Log dir [default: log]')
+parser.add_argument('--exp_dir', type=str, default=None, help='Experiment dir [default: log]')
 parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
 parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate for lr decay [default: 0.5]')
 args = parser.parse_args()
 
 PATH = args.dataset_root
-LOG_DIR = args.log_dir
+EXP_DIR = args.exp_dir
 EPOCHS = args.epoch
 BATCH_SIZE = args.batch_size
 NUM_POINTS = args.num_points
 LR_RATE = args.learning_rate
 MOMENTUM = args.momentum
 DECAY_STEP = args.decay_step
-DECAY_RATE = args.decay_step
+DECAY_RATE = args.decay_rate
 
-
+""" Create experiment directory """
+timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
+if not os.path.exists(EXP_DIR):
+    EXP_DIR = os.path.join('experiments', timestr)
+    os.mkdir(EXP_DIR)
+checkpoints_dir = os.path.join(EXP_DIR, 'checkpoints/')
+if not os.path.exists(checkpoints_dir):
+    os.mkdir(checkpoints_dir)
+log_dir = os.path.join(experiment_dir, 'logs/')
+if not os.path.exists(log_dir):
+    os.mkdir(log_dir)
 
 
 train_ds = PointCloudData(PATH, transform=train_transforms())
