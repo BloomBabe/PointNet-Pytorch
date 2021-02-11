@@ -1,5 +1,7 @@
 # Dataset folder
 data/
+# Log dir
+log/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
