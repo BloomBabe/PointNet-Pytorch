@@ -8,7 +8,6 @@ import torch
 import argparse
 import datetime
 from tqdm import tqdm
-#from torchvision import transforms, utils
 
 from torch.utils.data import Dataset, DataLoader
 from dataset_utils.preprocessing import train_transforms
@@ -43,12 +42,9 @@ timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
 if EXP_DIR is None:
     EXP_DIR = os.path.join('experiments', timestr)
     os.makedirs(EXP_DIR)
-checkpoints_dir = os.path.join(EXP_DIR, 'checkpoints/')
+checkpoints_dir = os.path.join(EXP_DIR, 'checkpoints')
 if not os.path.exists(checkpoints_dir):
     os.mkdir(checkpoints_dir)
-log_dir = os.path.join(EXP_DIR, 'logs/')
-if not os.path.exists(log_dir):
-    os.mkdir(log_dir)
 
 """ Data loading """
 train_ds = PointCloudData(PATH, transform=train_transforms())
@@ -70,15 +66,6 @@ print(device)
 pointnet = PointNet()
 pointnet.to(device)
 
-""" Load model weights """
-if WEIGHTS_PTH is not None:
-    checkpoint = torch.load(WEIGHTS_PTH)
-    start_epoch = checkpoint['epoch']
-    pointnet.load_state_dict(checkpoint['model_state_dict'])
-    print('Use pretrained model')
-else:
-    start_epoch = 0
-
 """ Define optimizer """
 optimizer = torch.optim.Adam(
                 pointnet.parameters(),
@@ -87,6 +74,16 @@ optimizer = torch.optim.Adam(
                 )
 
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
+
+""" Load model weights """
+if WEIGHTS_PTH is not None:
+    checkpoint = torch.load(WEIGHTS_PTH)
+    start_epoch = checkpoint['epoch']
+    pointnet.load_state_dict(checkpoint['model_state_dict'])
+    print('Use pretrained model')
+    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+else:
+    start_epoch = 0
 global_epoch = 0
 global_step = 0
 best_acc = 0.0
@@ -131,13 +128,14 @@ for epoch in range(start_epoch, EPOCHS):
         if val_acc > best_acc:
             best_acc = val_acc
             print('Saving model...')
-            savepth = checkpoints_dir + f'/saved_epoch_{epoch+1}.pth'
+            savepth = os.path.join(checkpoints_dir, f'/saved_epoch_{epoch+1}.pth')
             print(f'Model saved at {savepth}')
             state = {
                     'epoch': epoch,
                     'acc': best_acc,
                     'model_state_dict': pointnet.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict()
                     }
             torch.save(state, savepth)
             global_epoch += 1
