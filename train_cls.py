@@ -45,7 +45,7 @@ DECAY_RATE = args.decay_rate
 timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
 if not os.path.exists(EXP_DIR):
     EXP_DIR = os.path.join('experiments', timestr)
-    os.mkdir(EXP_DIR)
+    os.makedirs(EXP_DIR)
 checkpoints_dir = os.path.join(EXP_DIR, 'checkpoints/')
 if not os.path.exists(checkpoints_dir):
     os.mkdir(checkpoints_dir)
