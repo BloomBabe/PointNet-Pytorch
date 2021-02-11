@@ -2,9 +2,10 @@ import numpy as np
 import math
 import random
 import os
+import sys
 import json
 import torch
-from path import Path
+import argparse
 from torchvision import transforms, utils
 
 from torch.utils.data import Dataset, DataLoader
@@ -12,10 +13,37 @@ from dataset_utils.preprocessing import train_transforms
 from dataset_utils.ModelNet10DataLoader import PointCloudData
 from model import PointNet, pointnetloss
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(BASE_DIR)
 
-path = Path('./data/ModelNet10')
-train_ds = PointCloudData(path, transform=train_transforms())
-valid_ds = PointCloudData(path, valid=True, folder='test', transform=train_transforms())
+parser = argparse.ArgumentParser()
+parser.add_argument('--dataset_root', type=str, default='./data/ModelNet10', help='Path of root dataset [default: ./data/ModelNet10]')
+parser.add_argument('--epoch', type=int, default=200, help='Number of training epochs [default: 200]')
+parser.add_argument('--batch_size', type=int, default=24, help='Batch Size during training [default: 24]')
+parser.add_argument('--num_points', type=int, default=1024, help='Point number [default: 4096]')
+parser.add_argument('--optimizer', type=str, default='Adam', help='Optimizer for training [default: Adam]')
+parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
+parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
+parser.add_argument('--log_dir', type=str, default='log', help='Log dir [default: log]')
+parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
+parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate for lr decay [default: 0.5]')
+args = parser.parse_args()
+
+PATH = args.dataset_root
+LOG_DIR = args.log_dir
+EPOCHS = args.epoch
+BATCH_SIZE = args.batch_size
+NUM_POINTS = args.num_points
+LR_RATE = args.learning_rate
+MOMENTUM = args.momentum
+DECAY_STEP = args.decay_step
+DECAY_RATE = args.decay_step
+
+
+
+
+train_ds = PointCloudData(PATH, transform=train_transforms())
+valid_ds = PointCloudData(PATH, folder='test')
 
 inv_classes = {i: cat for cat, i in train_ds.classes.items()}
 print('Train dataset size: ', len(train_ds))
@@ -60,7 +88,7 @@ for epoch in range(epochs):
         # validation
         if val_loader:
             with torch.no_grad():
-                for data in val_loader:
+                for data in valid_loader:
                     inputs, labels = data['pointcloud'].to(device).float(), data['category'].to(device)
                     outputs, __, __ = pointnet(inputs.transpose(1,2))
                     _, predicted = torch.max(outputs.data, 1)
