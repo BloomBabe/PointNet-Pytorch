@@ -114,7 +114,7 @@ for epoch in range(start_epoch, EPOCHS):
         target = target.view(-1, 1)[:, 0]
         pred_choice = seg_pred.data.max(1)[1]
         correct = pred_choice.eq(target.data).cpu().sum()
-        mean_correct.append(correct.item() / (args.batch_size * args.npoint))
+        mean_correct.append(correct.item() / (BATCH_SIZE * NUM_POINTS))
         loss = pointnetloss(seg_pred, target, m128x128)
         loss.backward()
         optimizer.step()

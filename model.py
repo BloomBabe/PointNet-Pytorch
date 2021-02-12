@@ -23,13 +23,11 @@ class TNet(nn.Module):
     def __init__(self, 
                  channel = 3):
         super(TNet, self).__init__()
-        self.channel = channel
+        self.channel = channel 
 
         self.conv1_bn = conv1d_bn(self.channel, 64)
         self.conv2_bn = conv1d_bn(64, 128)
         self.conv3_bn = conv1d_bn(128, 1024)
-
-        self.max_pool = nn.MaxPool1d(1024)
 
         self.fc1_bn = fc_bn(1024, 512)
         self.fc2_bn = fc_bn(512, 256)
@@ -42,7 +40,7 @@ class TNet(nn.Module):
         output = self.conv2_bn(output)
         output = self.conv3_bn(output)
 
-        output = self.max_pool(output)
+        output = torch.max(output, 2, keepdim=True)[0]
         output = nn.Flatten()(output)
 
         output = self.fc1_bn(output)
@@ -118,7 +116,7 @@ class PointNetPartSg(nn.Module):
         self.conv1_bn = conv1d_bn(self.channel, 64)
         self.conv2_bn = conv1d_bn(64, 128)
         self.conv3_bn = conv1d_bn(128, 128)
-
+        
         self.feature_transform = TNet(128)
         self.conv4_bn = conv1d_bn(128, 512)
         self.conv5_bn = conv1d_bn(512, 2048)
@@ -128,27 +126,25 @@ class PointNetPartSg(nn.Module):
         self.conv7_bn = conv1d_bn(256, 256)
         self.conv8_bn = conv1d_bn(256, 128)
 
-        self.conv_out = nn.Conv1d(256, num_parts, kernel_size=1)
+        self.conv_out = nn.Conv1d(128, num_parts, kernel_size=1)
         self.logsoftmax = nn.LogSoftmax(dim=-1)
     
 
     def forward(self, x, label): 
-
         matrix3x3, output = self.input_transform(x)
         output1 = self.conv1_bn(output)
         output2 = self.conv2_bn(output1)
         output3 = self.conv3_bn(output2)
-
+        
         matrix128x128, output = self.feature_transform(output3)
         output4 = self.conv4_bn(output)
         output5 = self.conv5_bn(output4)
         output = self.max_pool(output5)
         output = nn.Flatten()(output)
-
+        
         output = torch.cat([output, label.squeeze(1)],1)
         expand = output.view(-1, 2048+16, 1).repeat(1, 1, x.size(2))
         concat = torch.cat([expand, output1, output2, output3, output4, output5], 1)
-
         output = self.conv6_bn(concat)
         output = self.conv7_bn(output)
         output = self.conv8_bn(output)
@@ -157,14 +153,13 @@ class PointNetPartSg(nn.Module):
         output = output.transpose(2, 1).contiguous().view(-1, self.num_parts)
         output = self.logsoftmax(output)
         pred = output.view(x.size(0), x.size(2), self.num_parts)
-
         return pred, matrix128x128
 
 """ Loss function for PointNet """
 def pointnetloss(outputs, labels, transform_matrix, alpha = 0.001):
     criterion = torch.nn.NLLLoss()
     bs=outputs.size(0)
-    id_matrix= torch.eye(transform_matrix.size(1), requires_grad=True).repeat(bs, 1, 1)
+    id_matrix= torch.eye(transform_matrix.size(1), requires_grad=True)[None, :, :]
     if outputs.is_cuda:
         id_matrix=id_matrix.cuda()
     diff = torch.bmm(transform_matrix, transform_matrix.transpose(1, 2))-id_matrix
