@@ -33,15 +33,12 @@ class PointSampler(object):
         for i in range(len(areas)):
             areas[i] = (self.triangle_area(verts[faces[i][0]],
                                            verts[faces[i][1]],
-                                           verts[faces[i][2]]))
-            
+                                           verts[faces[i][2]]))   
         sampled_faces = (random.choices(faces, 
-                                      weights=areas,
-                                      cum_weights=None,
-                                      k=self.output_size))
-        
+                                        weights=areas,
+                                        cum_weights=None,
+                                        k=self.output_size))
         sampled_points = np.zeros((self.output_size, 3))
-
         for i in range(len(sampled_faces)):
             sampled_points[i] = (self.sample_point(verts[sampled_faces[i][0]],
                                                    verts[sampled_faces[i][1]],
@@ -79,6 +76,22 @@ class RandomNoise(object):
         noisy_pointcloud = pointcloud + noise
         return  noisy_pointcloud
 
+class RandomShift(object):
+    def __call__(self, pointcloud, shift_range=0.1):
+        assert len(pointcloud.shape)==2
+
+        shifts = np.random.uniform(-shift_range, shift_range, 3)
+        pointcloud+= shifts
+        return pointcloud
+
+class RandomScale(object):
+    def __call__(self, pointcloud, scale_low=0.8, scale_high=1.25):
+        assert len(pointcloud.shape)==2
+
+        scales = np.random.uniform(scale_low, scale_high)
+        pointcloud *= scales
+        return pointcloud
+
 class ToTensor(object):
     def __call__(self, pointcloud):
         assert len(pointcloud.shape)==2
@@ -86,17 +99,20 @@ class ToTensor(object):
         return torch.from_numpy(pointcloud)
 
 
-def default_transforms():
+def default_transforms(num_points=1024):
     return transforms.Compose([
-                                PointSampler(1024),
+                                PointSampler(num_points),
                                 Normalize(),
                                 ToTensor()
                               ])
-def train_transforms():
+
+def train_transforms(num_points=1024):
     return transforms.Compose([
-                                PointSampler(1024),
+                                PointSampler(num_points),
                                 Normalize(),
-                                RandRotation_z(),
+                                #RandRotation_z(),
+                                RandomScale(),
+                                RandomShift(),
                                 RandomNoise(),
                                 ToTensor()
                               ])

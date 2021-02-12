@@ -16,10 +16,12 @@ def point_normalize(point_cloud):
 class PointCloudDataset(Dataset):
 
     def __init__(self,
+                 transforms,
                  split = 'trainval',
                  root_path = './data/shapenetcore_partanno_segmentation_benchmark_v0_normal',
-                 num_points = 1024):
+                 num_points = 2048):
         super(PointCloudDataset, self).__init__()
+        self.transforms = transforms
         self.split = split
         self.root_path = root_path
         self.num_points = num_points
@@ -43,7 +45,6 @@ class PointCloudDataset(Dataset):
         for item in self.categories:
             pts_dir = os.path.join(self.root_path, self.categories[item])
             fns = sorted(os.listdir(pts_dir))
-            #fns = [fn for fn in fns if ((fn[0:-4] in  split_ids))]
             for fn in fns:
                 token = os.path.splitext(fn)[0]
                 if token in split_ids:
@@ -52,14 +53,12 @@ class PointCloudDataset(Dataset):
         self.cache = {}  # from index to (point_set, cls, seg) tuple
         self.cache_size = 20000
 
-
-    def __preproc__(self, file):
-        pass
-
-
     def __len__(self):
         return len(self.datapths)
 
+    def __preproc__(self, point_set):
+        point_set = self.transforms(point_set)
+        return point_set
 
     def __getitem__(self, idx):
         fn = self.datapths[idx]
@@ -71,13 +70,13 @@ class PointCloudDataset(Dataset):
         seg = data[:, -1].astype(np.int32)
         if len(self.cache) < self.cache_size:
             self.cache[index] = (point_set, cls, seg)
-        point_set[:, 0:3] = point_normalize(point_set[:, 0:3])
+        # point_set[:, 0:3] = point_normalize(point_set[:, 0:3])
 
         choice = np.random.choice(len(seg), self.num_points, replace=True)
         # resample
         point_set = point_set[choice, :]
         seg = seg[choice]
-
+        point_set[:, 0:3] = self.__preproc__(point_set[:, 0:3])
         return point_set, cls, seg
 
 if __name__ == '__main__':

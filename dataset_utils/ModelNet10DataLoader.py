@@ -21,13 +21,13 @@ class PointCloudData(Dataset):
     def __init__(self, 
                  root_dir='./data/ModelNet10', 
                  folder="train", 
-                 transform=default_transforms()):
+                 transforms=default_transforms()):
         super(PointCloudData, self).__init__()
         self.root_dir = root_dir
         folders = [dir for dir in sorted(os.listdir(self.root_dir)) 
                     if os.path.isdir(os.path.join(self.root_dir, dir))]
         self.classes = {fold: i for i, fold in enumerate(folders)}
-        self.transforms = transform
+        self.transforms = transforms
         self.files = []
         for category in self.classes.keys():
             new_dir = os.path.join(self.root_dir, category, folder)

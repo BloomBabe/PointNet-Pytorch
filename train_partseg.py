@@ -10,9 +10,10 @@ import datetime
 from tqdm import tqdm
 
 from torch.utils.data import Dataset, DataLoader
-from dataset_utils.preprocessing import train_transforms
-from dataset_utils.ModelNet10DataLoader import PointCloudData
-from model import PointNetClass, pointnetloss
+from torchvision import transforms
+from dataset_utils.preprocessing import *
+from dataset_utils.ShapeNetDataLoader import PointCloudData
+from model import PointNetPartSg, pointnetloss
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
@@ -21,8 +22,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_root', type=str, default='./data/ModelNet10', help='Path of root dataset [default: ./data/ModelNet10]')
 parser.add_argument('--weights_path', type=str, default=None, help='Path to pretrained model [default: None]')
 parser.add_argument('--epoch', type=int, default=200, help='Number of training epochs [default: 200]')
-parser.add_argument('--batch_size', type=int, default=24, help='Batch Size during training [default: 24]')
-parser.add_argument('--num_points', type=int, default=1024, help='Point number [default: 4096]')
+parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 24]')
+parser.add_argument('--num_points', type=int, default=2048, help='Point number [default: 4096]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--exp_dir', type=str, default=None, help='Experiment dir [default: log]')
 parser.add_argument('--decay_rate', type=float, default=1e-4, help='Decay rate for lr decay [default: 1e-4]')
@@ -40,19 +41,26 @@ DECAY_RATE = args.decay_rate
 """ Create experiment directory """
 timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
 if EXP_DIR is None:
-    EXP_DIR = os.path.join('experiments', 'classification', timestr)
+    EXP_DIR = os.path.join('experiments', 'part_seg', timestr)
     os.makedirs(EXP_DIR)
 checkpoints_dir = os.path.join(EXP_DIR, 'checkpoints')
 if not os.path.exists(checkpoints_dir):
     os.mkdir(checkpoints_dir)
 
 """ Data loading """
-train_ds = PointCloudData(PATH, transform=train_transforms())
-valid_ds = PointCloudData(PATH, folder='test')
+train_transforms = transforms.Compose([Normalize(),
+                                       RandomScale(),
+                                       RandomShift(),
+                                       RandomNoise(),
+                                       ToTensor()])
+test_transforms = transforms.Compose([Normalize(),
+                                      ToTensor()])
+                                 
+train_ds = PointCloudData(transforms=train_transforms, split='train', root_path=PATH)
+valid_ds = PointCloudData(transforms=test_transforms, split='val', root_path=PATH)
 
 print('Train dataset size: ', len(train_ds))
 print('Valid dataset size: ', len(valid_ds))
-print('Number of classes: ', len(train_ds.classes))
 
 train_loader = DataLoader(dataset=train_ds, batch_size=BATCH_SIZE, shuffle=True)
 valid_loader = DataLoader(dataset=valid_ds, batch_size=BATCH_SIZE)
@@ -60,7 +68,7 @@ valid_loader = DataLoader(dataset=valid_ds, batch_size=BATCH_SIZE)
 """ Model loading """
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
-pointnet = PointNetClass()
+pointnet = PointNetPartSg()
 pointnet.to(device)
 
 """ Define optimizer """
@@ -137,4 +145,3 @@ for epoch in range(start_epoch, EPOCHS):
             torch.save(state, savepth)
             global_epoch += 1
     scheduler.step()
-
