@@ -16,13 +16,13 @@ def read_off(file):
     return verts, faces
 
 
-class PointCloudData(Dataset):
+class PointCloudDataset(Dataset):
     
     def __init__(self, 
                  root_dir='./data/ModelNet10', 
                  folder="train", 
                  transforms=default_transforms()):
-        super(PointCloudData, self).__init__()
+        super(PointCloudDataset, self).__init__()
         self.root_dir = root_dir
         folders = [dir for dir in sorted(os.listdir(self.root_dir)) 
                     if os.path.isdir(os.path.join(self.root_dir, dir))]

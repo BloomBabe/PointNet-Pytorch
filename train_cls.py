@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from torch.utils.data import Dataset, DataLoader
 from dataset_utils.preprocessing import train_transforms
-from dataset_utils.ModelNet10DataLoader import PointCloudData
+from dataset_utils.ModelNet10DataLoader import PointCloudDataset
 from model import PointNetClass, pointnetloss
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -47,8 +47,8 @@ if not os.path.exists(checkpoints_dir):
     os.mkdir(checkpoints_dir)
 
 """ Data loading """
-train_ds = PointCloudData(PATH, transform=train_transforms())
-valid_ds = PointCloudData(PATH, folder='test')
+train_ds = PointCloudDataset(PATH, transforms=train_transforms())
+valid_ds = PointCloudDataset(PATH, folder='test')
 
 print('Train dataset size: ', len(train_ds))
 print('Valid dataset size: ', len(valid_ds))

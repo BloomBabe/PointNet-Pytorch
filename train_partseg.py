@@ -12,14 +12,14 @@ from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from dataset_utils.preprocessing import *
-from dataset_utils.ShapeNetDataLoader import PointCloudData
+from dataset_utils.ShapeNetDataLoader import PointCloudDataset
 from model import PointNetPartSg, pointnetloss
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_root', type=str, default='./data/ModelNet10', help='Path of root dataset [default: ./data/ModelNet10]')
+parser.add_argument('--dataset_root', type=str, default='./data/shapenetcore_partanno_segmentation_benchmark_v0_normal', help='Path of root dataset [default: ./data/ModelNet10]')
 parser.add_argument('--weights_path', type=str, default=None, help='Path to pretrained model [default: None]')
 parser.add_argument('--epoch', type=int, default=200, help='Number of training epochs [default: 200]')
 parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 24]')
@@ -56,9 +56,10 @@ train_transforms = transforms.Compose([Normalize(),
 test_transforms = transforms.Compose([Normalize(),
                                       ToTensor()])
                                  
-train_ds = PointCloudData(transforms=train_transforms, split='train', root_path=PATH)
-valid_ds = PointCloudData(transforms=test_transforms, split='val', root_path=PATH)
-
+train_ds = PointCloudDataset(transforms=train_transforms, split='train', root_path=PATH)
+valid_ds = PointCloudDataset(transforms=test_transforms, split='val', root_path=PATH)
+NUM_CLASSES = 16
+NUM_PARTS = 50
 print('Train dataset size: ', len(train_ds))
 print('Valid dataset size: ', len(valid_ds))
 
@@ -88,6 +89,8 @@ if WEIGHTS_PTH is not None:
     print('Use pretrained model')
     scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 else:
+    # torch.nn.init.xavier_normal_(pointnet.weight.data)
+    # torch.nn.init.constant_(pointnet.bias.data, 0.0)
     start_epoch = 0
 global_epoch = 0
 global_step = 0
@@ -96,25 +99,28 @@ best_acc = 0.0
 """ Training """
 for epoch in range(start_epoch, EPOCHS): 
     print('Epoch %d (%d/%s):' % (global_epoch + 1, epoch + 1, EPOCHS))
-    running_loss = 0.0
+    mean_correct = []  
     correct = total = 0
     # train
     for batch_id, data in tqdm(enumerate(train_loader, 0), total=len(train_loader), smoothing=0.9):
-        inputs, labels = data['pointcloud'].to(device).float(), data['category'].to(device)
+        points, label, target = data
+        points, label, target = points.float().to(device),label.long().to(device), target.long().to(device)
+        points = points.transpose(2, 1) 
         optimizer.zero_grad()
         pointnet.train()
-        outputs, m64x64 = pointnet(inputs.transpose(1,2))
-        loss = pointnetloss(outputs, labels, m64x64)
-        
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).cpu().sum().item()
-
+        cat_label = torch.eye(NUM_CLASSES)[label.cpu().data.numpy(),].to(device)
+        seg_pred, m128x128 = pointnet(points, cat_label)
+        seg_pred = seg_pred.contiguous().view(-1, NUM_PARTS)
+        target = target.view(-1, 1)[:, 0]
+        pred_choice = seg_pred.data.max(1)[1]
+        correct = pred_choice.eq(target.data).cpu().sum()
+        mean_correct.append(correct.item() / (args.batch_size * args.npoint))
+        loss = pointnetloss(seg_pred, target, m128x128)
         loss.backward()
         optimizer.step()
         global_step +=1
 
-    train_acc = 100. * correct / total
+    train_acc = 100. * np.mean(mean_correct)
     print('Train accuracy: %f' % train_acc)
 
     pointnet.eval()

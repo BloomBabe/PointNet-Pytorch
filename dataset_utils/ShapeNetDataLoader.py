@@ -69,7 +69,7 @@ class PointCloudDataset(Dataset):
         point_set = data[:, 0:3]
         seg = data[:, -1].astype(np.int32)
         if len(self.cache) < self.cache_size:
-            self.cache[index] = (point_set, cls, seg)
+            self.cache[idx] = (point_set, cls, seg)
         # point_set[:, 0:3] = point_normalize(point_set[:, 0:3])
 
         choice = np.random.choice(len(seg), self.num_points, replace=True)
