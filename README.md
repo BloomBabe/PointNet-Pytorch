@@ -7,13 +7,13 @@ This repo is implementation for PointNet in PyTorch.
 Dataset: **ModelNet10**
 [link]  http://3dvision.princeton.edu/projects/2014/3DShapeNets/ModelNet10.zip
 
-###Download script:
+### Download script:
 
 ```
 sh modelnet_data_download.sh
 ```
 
-###Train script:
+### Train script:
 ```
 python train_cls.py
 ```
