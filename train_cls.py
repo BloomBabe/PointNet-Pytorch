@@ -13,7 +13,7 @@ from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 from dataset_utils.preprocessing import train_transforms
 from dataset_utils.ModelNet10DataLoader import PointCloudData
-from model import PointNet, pointnetloss
+from model import PointNetClass, pointnetloss
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
@@ -58,8 +58,6 @@ inv_classes = {i: cat for cat, i in train_ds.classes.items()}
 print('Train dataset size: ', len(train_ds))
 print('Valid dataset size: ', len(valid_ds))
 print('Number of classes: ', len(train_ds.classes))
-print('Sample pointcloud shape: ', train_ds[0]['pointcloud'].size())
-print('Class: ', inv_classes[train_ds[0]['category']])
 
 train_loader = DataLoader(dataset=train_ds, batch_size=BATCH_SIZE, shuffle=True)
 valid_loader = DataLoader(dataset=valid_ds, batch_size=BATCH_SIZE)
@@ -67,7 +65,7 @@ valid_loader = DataLoader(dataset=valid_ds, batch_size=BATCH_SIZE)
 """ Model loading """
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
-pointnet = PointNet()
+pointnet = PointNetClass()
 pointnet.to(device)
 
 """ Load model weights """
@@ -101,8 +99,8 @@ for epoch in range(start_epoch, EPOCHS):
         inputs, labels = data['pointcloud'].to(device).float(), data['category'].to(device)
         optimizer.zero_grad()
         pointnet.train()
-        outputs, m3x3, m64x64 = pointnet(inputs.transpose(1,2))
-        loss = pointnetloss(outputs, labels, m3x3, m64x64)
+        outputs, m64x64 = pointnet(inputs.transpose(1,2))
+        loss = pointnetloss(outputs, labels, m64x64)
         
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
@@ -121,7 +119,7 @@ for epoch in range(start_epoch, EPOCHS):
     with torch.no_grad():
         for data in valid_loader:
             inputs, labels = data['pointcloud'].to(device).float(), data['category'].to(device)
-            outputs, __, __ = pointnet(inputs.transpose(1,2))
+            outputs, __ = pointnet(inputs.transpose(1,2))
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
